@@ -1,0 +1,13 @@
+EmployeeMS-Frontend/node_modules/
+EmployeeMS-Frontend/dist/
+
+EmployeeMS-Backend/bin/
+EmployeeMS-Backend/obj/
+
+EmployeeMS-Backend/appsettings.json
+EmployeeMS-Backend/appsettings.Development.json
+
+.vs/
+.vscode/
+*.user
+*.suo
