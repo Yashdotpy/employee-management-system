@@ -14,6 +14,7 @@ import Attendance from "../pages/hr/Attendance";
 import CreateAttendance from "../pages/hr/CreateAttendance";
 import EditAttendance from "../pages/hr/EditAttendance";
 import EmployeeAttendanceCalendar from "../pages/hr/EmployeeAttendanceCalendar";
+import HolidayCalendar from "../pages/hr/HolidayCalendar";
 import MyAttendance from "../pages/employee/MyAttendance";
 // import ChangePassword from "./pages/employee/ChangePassword";
 
@@ -121,6 +122,10 @@ function AppRoutes() {
               <EmployeeAttendanceCalendar />
             </ProtectedRoute>
           }
+        />
+        <Route
+          path="/attendance/holidays"
+          element={<ProtectedRoute allowedRoles={["Admin", "HR"]}><HolidayCalendar /></ProtectedRoute>}
         />
         <Route
           path="/my-attendance"

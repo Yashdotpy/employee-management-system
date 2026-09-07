@@ -198,6 +198,10 @@ function AttendanceForm({
             Leave
           </option>
 
+          <option value="Off Day">
+            Off Day
+          </option>
+
         </select>
 
       </div>

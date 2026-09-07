@@ -72,6 +72,12 @@ function AttendanceClockCard() {
         <div className="rounded-xl bg-white/15 p-5 backdrop-blur-sm lg:min-w-72">
           {loading ? (
             <p className="text-sm text-sky-100">Loading attendance status...</p>
+          ) : today?.isOffDay || today?.isHoliday ? (
+            <>
+              <p className="text-sm text-sky-100">Today&apos;s attendance</p>
+              <p className="mt-1 text-xl font-bold">{today?.isHoliday ? "Holiday" : "Off Day"}</p>
+              <p className="mt-3 text-sm text-sky-100">{today?.isHoliday ? "Sign-in is unavailable for the declared holiday." : "Saturday and Sunday are weekly off days."}</p>
+            </>
           ) : hasClockedOut ? (
             <>
               <p className="text-sm text-sky-100">Today&apos;s attendance</p>

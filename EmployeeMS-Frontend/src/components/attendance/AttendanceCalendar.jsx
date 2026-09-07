@@ -6,6 +6,8 @@ const statusConfig = {
   "Half Day": { code: "H", className: "bg-amber-50 text-amber-700" },
   Leave: { code: "L", className: "bg-violet-50 text-violet-700" },
   "In Progress": { code: "I", className: "bg-sky-50 text-sky-700" },
+  "Off Day": { code: "O", className: "bg-slate-100 text-slate-700" },
+  Holiday: { code: "H", className: "bg-fuchsia-50 text-fuchsia-700" },
 };
 
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -47,7 +49,7 @@ function formatDuration(minutes) {
   return `${String(hours).padStart(2, "0")}:${String(remainingMinutes).padStart(2, "0")}`;
 }
 
-function AttendanceCalendar({ records, employeeName, readOnly = true }) {
+function AttendanceCalendar({ records, holidays = [], employeeName, readOnly = true }) {
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -57,6 +59,10 @@ function AttendanceCalendar({ records, employeeName, readOnly = true }) {
   const recordsByDate = useMemo(
     () => new Map(records.map((record) => [recordDateKey(record), record])),
     [records]
+  );
+  const holidaysByDate = useMemo(
+    () => new Map(holidays.map((holiday) => [holiday.holidayDate?.split("T")[0], holiday])),
+    [holidays]
   );
 
   const monthRecords = useMemo(
@@ -81,8 +87,18 @@ function AttendanceCalendar({ records, employeeName, readOnly = true }) {
   }, [visibleMonth]);
 
   const selectedRecord = recordsByDate.get(selectedDate);
+  const selectedHoliday = holidaysByDate.get(selectedDate);
+  const selectedDay = new Date(`${selectedDate}T00:00:00`);
+  const selectedIsWeekend = selectedDay.getDay() === 0 || selectedDay.getDay() === 6;
+  const detailRecord = selectedHoliday
+    ? { status: "Holiday", remarks: selectedHoliday.name }
+    : selectedIsWeekend
+    ? { status: "Off Day" }
+    : selectedRecord;
   const presentDays = monthRecords.filter((record) => record.status === "Present").length;
-  const exceptionDays = monthRecords.filter((record) => record.status !== "Present").length;
+  const exceptionDays = monthRecords.filter(
+    (record) => record.status !== "Present" && record.status !== "Off Day"
+  ).length;
   const totalWorkMinutes = monthRecords.reduce(
     (total, record) => total + workMinutes(record),
     0
@@ -128,7 +144,14 @@ function AttendanceCalendar({ records, employeeName, readOnly = true }) {
             {calendarDays.map((day) => {
               const dateKey = toDateKey(day);
               const record = recordsByDate.get(dateKey);
-              const config = statusConfig[record?.status];
+              const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+              const holiday = holidaysByDate.get(dateKey);
+              const displayStatus = holiday
+                ? "Holiday"
+                : isWeekend
+                ? "Off Day"
+                : record?.status;
+              const config = statusConfig[displayStatus];
               const isCurrentMonth = day.getMonth() === visibleMonth.getMonth();
               const isSelected = selectedDate === dateKey;
 
@@ -140,7 +163,7 @@ function AttendanceCalendar({ records, employeeName, readOnly = true }) {
                   className={`min-h-24 border-b border-r border-slate-200 p-3 text-left transition hover:bg-slate-50 ${!isCurrentMonth ? "bg-slate-50 text-slate-400" : "bg-white"} ${isSelected ? "ring-2 ring-inset ring-sky-500" : ""}`}
                 >
                   <span className="text-base font-medium">{day.getDate()}</span>
-                  {record && (
+                  {displayStatus && (
                     <span className={`mt-3 flex h-8 w-8 items-center justify-center rounded-md text-sm font-bold ${config?.className || "bg-slate-100 text-slate-700"}`}>
                       {config?.code || "?"}
                     </span>
@@ -158,16 +181,16 @@ function AttendanceCalendar({ records, employeeName, readOnly = true }) {
             {employeeName && <p className="mt-1 text-sm text-slate-500">{employeeName}</p>}
           </div>
 
-          {selectedRecord ? (
+          {detailRecord ? (
             <div className="space-y-5 p-6">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-500">Status</span>
-                <span className={`rounded-full px-3 py-1 text-sm font-semibold ${statusConfig[selectedRecord.status]?.className || "bg-slate-100 text-slate-700"}`}>{selectedRecord.status}</span>
+                <span className={`rounded-full px-3 py-1 text-sm font-semibold ${statusConfig[detailRecord.status]?.className || "bg-slate-100 text-slate-700"}`}>{detailRecord.status}</span>
               </div>
-              <DetailRow label="First in" value={formatTime(selectedRecord.checkInTime)} />
-              <DetailRow label="Last out" value={formatTime(selectedRecord.checkOutTime)} />
-              <DetailRow label="Total work hrs" value={formatDuration(workMinutes(selectedRecord))} />
-              <DetailRow label="Remarks" value={selectedRecord.remarks || "—"} />
+              <DetailRow label="First in" value={formatTime(detailRecord.checkInTime)} />
+              <DetailRow label="Last out" value={formatTime(detailRecord.checkOutTime)} />
+              <DetailRow label="Total work hrs" value={formatDuration(workMinutes(detailRecord))} />
+              <DetailRow label="Remarks" value={detailRecord.remarks || (detailRecord.status === "Off Day" ? "Weekend off day." : "—")} />
               {!readOnly && <p className="text-xs text-slate-400">Use the attendance management list to edit this record.</p>}
             </div>
           ) : (

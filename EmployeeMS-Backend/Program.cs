@@ -48,6 +48,8 @@ builder.Services.AddScoped<
     AttendanceReportRepository
 >();
 
+builder.Services.AddScoped<IHolidayRepository, HolidayRepository>();
+
 builder.Services.AddHostedService<AttendanceAutoMarkService>();
 
 
@@ -199,6 +201,20 @@ static async Task EnsureAttendanceSchemaAsync(WebApplication app)
     using var command = new SqlCommand(query, connection);
     await connection.OpenAsync();
     await command.ExecuteNonQueryAsync();
+
+    const string holidayQuery = @"
+        IF OBJECT_ID('dbo.Holidays', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.Holidays
+            (
+                HolidayId int IDENTITY(1,1) PRIMARY KEY,
+                HolidayDate date NOT NULL UNIQUE,
+                Name nvarchar(100) NOT NULL,
+                CreatedAt datetime2 NOT NULL DEFAULT GETDATE()
+            );
+        END";
+    using var holidayCommand = new SqlCommand(holidayQuery, connection);
+    await holidayCommand.ExecuteNonQueryAsync();
 }
 
 

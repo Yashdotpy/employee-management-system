@@ -12,7 +12,9 @@ public class AttendanceRepository : IAttendanceRepository
             "Present",
             "Absent",
             "Half Day",
-            "Leave"
+            "Leave",
+            "Off Day",
+            "Holiday"
         };
 
     private readonly string _connectionString;
@@ -301,6 +303,8 @@ public class AttendanceRepository : IAttendanceRepository
         {
             ShiftStartTime = shift.Value.Start,
             ShiftEndTime = shift.Value.End,
+            IsOffDay = IsWeekend(DateTime.Today),
+            IsHoliday = IsHoliday(connection, DateTime.Today),
             Attendance = GetAttendanceForDate(connection, employeeId, DateTime.Today)
         };
     }
@@ -309,6 +313,12 @@ public class AttendanceRepository : IAttendanceRepository
     {
         using SqlConnection connection = new SqlConnection(_connectionString);
         connection.Open();
+
+        if (IsWeekend(DateTime.Today) || IsHoliday(connection, DateTime.Today))
+        {
+            throw new InvalidOperationException(
+                "Sign-in is not available on an off day or holiday.");
+        }
 
         var shift = GetEmployeeShift(connection, employeeId)
             ?? throw new InvalidOperationException("Employee not found.");
@@ -349,6 +359,8 @@ public class AttendanceRepository : IAttendanceRepository
         {
             ShiftStartTime = shift.Start,
             ShiftEndTime = shift.End,
+            IsOffDay = false,
+            IsHoliday = false,
             Attendance = GetAttendanceForDate(connection, employeeId, DateTime.Today)
         };
     }
@@ -395,6 +407,8 @@ public class AttendanceRepository : IAttendanceRepository
         {
             ShiftStartTime = shift.Start,
             ShiftEndTime = shift.End,
+            IsOffDay = IsWeekend(DateTime.Today),
+            IsHoliday = IsHoliday(connection, DateTime.Today),
             Attendance = GetAttendanceForDate(connection, employeeId, DateTime.Today)
         };
     }
@@ -405,6 +419,28 @@ public class AttendanceRepository : IAttendanceRepository
         connection.Open();
 
         const string query = @"
+            UPDATE a
+            SET
+                a.Status = 'Off Day',
+                a.Remarks = 'Automatically marked off day.'
+            FROM Attendance a
+            INNER JOIN Employees e ON e.EmployeeId = a.EmployeeId
+            WHERE e.Role = 'Employee'
+              AND a.Status = 'Absent'
+              AND a.Remarks = 'Automatically marked absent because no sign-in was recorded.'
+              AND (DATEDIFF(day, '19000101', a.AttendanceDate) % 7) IN (5, 6);
+
+            UPDATE a
+            SET
+                a.Status = 'Holiday',
+                a.Remarks = CONCAT('Holiday: ', h.Name)
+            FROM Attendance a
+            INNER JOIN Holidays h ON h.HolidayDate = a.AttendanceDate
+            INNER JOIN Employees e ON e.EmployeeId = a.EmployeeId
+            WHERE e.Role = 'Employee'
+              AND a.Status = 'Absent'
+              AND a.Remarks = 'Automatically marked absent because no sign-in was recorded.';
+
             WITH DateRange AS
             (
                 SELECT CAST(MIN(DateOfJoining) AS date) AS AttendanceDate
@@ -430,6 +466,8 @@ public class AttendanceRepository : IAttendanceRepository
                 AND CAST(e.DateOfJoining AS date) <= d.AttendanceDate
             WHERE e.Role = 'Employee'
               AND d.AttendanceDate IS NOT NULL
+              AND (DATEDIFF(day, '19000101', d.AttendanceDate) % 7) NOT IN (5, 6)
+              AND NOT EXISTS (SELECT 1 FROM Holidays h WHERE h.HolidayDate = d.AttendanceDate)
               AND NOT EXISTS
               (
                   SELECT 1
@@ -459,6 +497,19 @@ public class AttendanceRepository : IAttendanceRepository
         return reader.Read()
             ? ((TimeSpan)reader["ShiftStartTime"], (TimeSpan)reader["ShiftEndTime"])
             : null;
+    }
+
+    private static bool IsWeekend(DateTime date)
+    {
+        return date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+    }
+
+    private static bool IsHoliday(SqlConnection connection, DateTime date)
+    {
+        using var command = new SqlCommand(
+            "SELECT COUNT(*) FROM Holidays WHERE HolidayDate = @HolidayDate", connection);
+        command.Parameters.AddWithValue("@HolidayDate", date.Date);
+        return Convert.ToInt32(command.ExecuteScalar()) > 0;
     }
 
     private static Attendance? GetAttendanceForDate(
@@ -655,7 +706,7 @@ public class AttendanceRepository : IAttendanceRepository
         if (!ValidStatuses.Contains(attendance.Status?.Trim() ?? string.Empty))
         {
             throw new InvalidOperationException(
-                "Status must be Present, Absent, Half Day, or Leave.");
+                "Status must be Present, Absent, Half Day, Leave, Off Day, or Holiday.");
         }
 
         if (attendance.CheckInTime.HasValue &&

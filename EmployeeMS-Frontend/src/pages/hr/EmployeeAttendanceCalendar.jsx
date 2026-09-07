@@ -6,23 +6,27 @@ import AttendanceCalendar from "../../components/attendance/AttendanceCalendar";
 import AdminLayout from "../../layouts/AdminLayout";
 import { getEmployeeAttendance } from "../../services/attendanceService";
 import { getEmployee } from "../../services/employeeService";
+import { getHolidays } from "../../services/holidayService";
 
 function EmployeeAttendanceCalendar() {
   const { employeeId } = useParams();
   const navigate = useNavigate();
   const [employee, setEmployee] = useState(null);
   const [attendance, setAttendance] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadEmployeeAttendance() {
       try {
-        const [employeeResponse, records] = await Promise.all([
+        const [employeeResponse, records, holidayData] = await Promise.all([
           getEmployee(employeeId),
           getEmployeeAttendance(employeeId),
+          getHolidays(),
         ]);
         setEmployee(employeeResponse.data);
         setAttendance(records);
+        setHolidays(holidayData);
       } catch (error) {
         console.error("Failed to load employee attendance:", error);
         toast.error(error.response?.data?.message || "Failed to load employee attendance.");
@@ -47,7 +51,7 @@ function EmployeeAttendanceCalendar() {
         {loading ? (
           <div className="rounded-xl bg-white p-10 text-center text-slate-500 shadow">Loading attendance...</div>
         ) : (
-          <AttendanceCalendar records={attendance} employeeName={employee?.fullName} readOnly={false} />
+          <AttendanceCalendar records={attendance} holidays={holidays} employeeName={employee?.fullName} readOnly={false} />
         )}
       </div>
     </AdminLayout>
