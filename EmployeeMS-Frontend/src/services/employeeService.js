@@ -8,6 +8,16 @@ export const getMyProfile = async () => {
 export const getEmployees = () =>
   axiosClient.get("/employee");
 
+export const getEmployeeDirectory = async () => {
+  const response = await axiosClient.get("/employee/directory");
+  return response.data;
+};
+
+export const changeMyPassword = async (data) => {
+  const response = await axiosClient.post("/employee/me/change-password", data);
+  return response.data;
+};
+
 export const getEmployee = (id) =>
   axiosClient.get(`/employee/${id}`);
 

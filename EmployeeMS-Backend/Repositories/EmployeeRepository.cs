@@ -174,6 +174,65 @@ public class EmployeeRepository : IEmployeeRepository
         };
     }
 
+    public List<EmployeeDirectoryDto> GetEmployeeDirectory()
+    {
+        var employees = new List<EmployeeDirectoryDto>();
+        using SqlConnection connection = CreateConnection();
+        using SqlCommand command = new SqlCommand(@"
+            SELECT EmployeeId, FullName, Email, Department, Phone
+            FROM Employees
+            ORDER BY FullName", connection);
+        connection.Open();
+        using SqlDataReader reader = command.ExecuteReader();
+
+        while (reader.Read())
+        {
+            employees.Add(new EmployeeDirectoryDto
+            {
+                EmployeeId = Convert.ToInt32(reader["EmployeeId"]),
+                FullName = reader["FullName"]?.ToString() ?? string.Empty,
+                Email = reader["Email"]?.ToString() ?? string.Empty,
+                Department = reader["Department"]?.ToString() ?? string.Empty,
+                Phone = reader["Phone"]?.ToString() ?? string.Empty
+            });
+        }
+
+        return employees;
+    }
+
+    public string? ChangePassword(
+        int employeeId,
+        string currentPassword,
+        string newPassword)
+    {
+        using SqlConnection connection = CreateConnection();
+        connection.Open();
+
+        using var currentCommand = new SqlCommand(
+            "SELECT PasswordHash FROM Employees WHERE EmployeeId = @EmployeeId", connection);
+        currentCommand.Parameters.AddWithValue("@EmployeeId", employeeId);
+        string? passwordHash = currentCommand.ExecuteScalar()?.ToString();
+
+        if (string.IsNullOrEmpty(passwordHash))
+        {
+            return "Employee account not found.";
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(currentPassword, passwordHash))
+        {
+            return "Current password is incorrect.";
+        }
+
+        using var updateCommand = new SqlCommand(@"
+            UPDATE Employees SET PasswordHash = @PasswordHash
+            WHERE EmployeeId = @EmployeeId", connection);
+        updateCommand.Parameters.AddWithValue(
+            "@PasswordHash", BCrypt.Net.BCrypt.HashPassword(newPassword));
+        updateCommand.Parameters.AddWithValue("@EmployeeId", employeeId);
+        updateCommand.ExecuteNonQuery();
+        return null;
+    }
+
 
     // =====================================================
     // ADD EMPLOYEE

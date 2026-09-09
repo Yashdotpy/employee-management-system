@@ -15,4 +15,6 @@ public class EmployeeAttendanceTodayDto
     public bool IsOffDay { get; set; }
 
     public bool IsHoliday { get; set; }
+
+    public bool IsOnLeave { get; set; }
 }

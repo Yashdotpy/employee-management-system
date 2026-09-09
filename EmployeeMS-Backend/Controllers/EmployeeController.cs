@@ -153,4 +153,27 @@ public class EmployeeController : ControllerBase
 
         return Ok(employee);
     }
+
+    [Authorize(Roles = "Employee")]
+    [HttpGet("directory")]
+    public IActionResult GetEmployeeDirectory()
+    {
+        return Ok(_repository.GetEmployeeDirectory());
+    }
+
+    [Authorize(Roles = "Employee")]
+    [HttpPost("me/change-password")]
+    public IActionResult ChangeMyPassword(ChangePasswordDto dto)
+    {
+        string? employeeId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(employeeId, out int id))
+        {
+            return Unauthorized(new { message = "Invalid employee identity." });
+        }
+
+        string? error = _repository.ChangePassword(id, dto.CurrentPassword, dto.NewPassword);
+        return error == null
+            ? Ok(new { message = "Password changed successfully." })
+            : BadRequest(new { message = error });
+    }
 }

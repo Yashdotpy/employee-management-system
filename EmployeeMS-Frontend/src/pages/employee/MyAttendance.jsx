@@ -5,21 +5,25 @@ import AttendanceCalendar from "../../components/attendance/AttendanceCalendar";
 import EmployeeLayout from "../../layouts/EmployeeLayout";
 import { getMyAttendance } from "../../services/attendanceService";
 import { getHolidays } from "../../services/holidayService";
+import { getMyLeaves } from "../../services/leaveService";
 
 function MyAttendance() {
   const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
   const [holidays, setHolidays] = useState([]);
+  const [leaves, setLeaves] = useState([]);
 
   useEffect(() => {
     async function loadAttendance() {
       try {
-        const [data, holidayData] = await Promise.all([
+        const [data, holidayData, leaveData] = await Promise.all([
           getMyAttendance(),
           getHolidays(),
+          getMyLeaves(),
         ]);
         setAttendance(data);
         setHolidays(holidayData);
+        setLeaves(leaveData);
       } catch (error) {
         console.error("Failed to load attendance:", error);
         toast.error(error.response?.data?.message || "Failed to load attendance.");
@@ -42,7 +46,7 @@ function MyAttendance() {
         {loading ? (
           <div className="rounded-xl bg-white p-10 text-center text-slate-500 shadow">Loading attendance...</div>
         ) : (
-          <AttendanceCalendar records={attendance} holidays={holidays} />
+          <AttendanceCalendar records={attendance} holidays={holidays} leaves={leaves} />
         )}
       </div>
     </EmployeeLayout>

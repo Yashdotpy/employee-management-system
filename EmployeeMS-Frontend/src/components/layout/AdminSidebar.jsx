@@ -8,6 +8,7 @@ function AdminSidebar() {
     { title: "Dashboard", path: "/dashboard" },
     { title: "Employees", path: "/employees" },
     { title: "Attendance", path: "/attendance" },
+    { title: "Leave Management", path: "/leaves" },
   ];
 
   if (user?.role === "Admin") {

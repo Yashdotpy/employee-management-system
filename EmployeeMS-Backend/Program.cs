@@ -49,6 +49,7 @@ builder.Services.AddScoped<
 >();
 
 builder.Services.AddScoped<IHolidayRepository, HolidayRepository>();
+builder.Services.AddScoped<ILeaveRepository, LeaveRepository>();
 
 builder.Services.AddHostedService<AttendanceAutoMarkService>();
 
@@ -215,6 +216,33 @@ static async Task EnsureAttendanceSchemaAsync(WebApplication app)
         END";
     using var holidayCommand = new SqlCommand(holidayQuery, connection);
     await holidayCommand.ExecuteNonQueryAsync();
+
+    const string leaveQuery = @"
+        IF OBJECT_ID('dbo.LeaveRequests', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.LeaveRequests
+            (
+                LeaveId int IDENTITY(1,1) PRIMARY KEY,
+                EmployeeId int NOT NULL,
+                StartDate date NOT NULL,
+                EndDate date NOT NULL,
+                LeaveType nvarchar(50) NOT NULL,
+                Reason nvarchar(500) NOT NULL,
+                Status nvarchar(20) NOT NULL DEFAULT 'Pending',
+                ReviewedAt datetime2 NULL,
+                CreatedAt datetime2 NOT NULL DEFAULT GETDATE(),
+                CONSTRAINT FK_LeaveRequests_Employees
+                    FOREIGN KEY (EmployeeId) REFERENCES dbo.Employees(EmployeeId),
+                CONSTRAINT CK_LeaveRequests_Dates CHECK (EndDate >= StartDate),
+                CONSTRAINT CK_LeaveRequests_Status
+                    CHECK (Status IN ('Pending', 'Approved', 'Rejected'))
+            );
+
+            CREATE INDEX IX_LeaveRequests_EmployeeDates
+                ON dbo.LeaveRequests(EmployeeId, StartDate, EndDate);
+        END";
+    using var leaveCommand = new SqlCommand(leaveQuery, connection);
+    await leaveCommand.ExecuteNonQueryAsync();
 }
 
 

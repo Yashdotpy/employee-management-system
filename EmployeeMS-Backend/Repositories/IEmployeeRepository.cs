@@ -11,6 +11,10 @@ public interface IEmployeeRepository
 
     EmployeeDto? GetEmployeeByEmail(string email);
 
+    List<EmployeeDirectoryDto> GetEmployeeDirectory();
+
+    string? ChangePassword(int employeeId, string currentPassword, string newPassword);
+
     void AddEmployee(EmployeeCreateDto employee);
 
     bool UpdateEmployee(

@@ -16,6 +16,10 @@ import EditAttendance from "../pages/hr/EditAttendance";
 import EmployeeAttendanceCalendar from "../pages/hr/EmployeeAttendanceCalendar";
 import HolidayCalendar from "../pages/hr/HolidayCalendar";
 import MyAttendance from "../pages/employee/MyAttendance";
+import EmployeeDirectory from "../pages/employee/EmployeeDirectory";
+import ChangePassword from "../pages/employee/ChangePassword";
+import MyLeaves from "../pages/employee/MyLeaves";
+import LeaveManagement from "../pages/hr/LeaveManagement";
 // import ChangePassword from "./pages/employee/ChangePassword";
 
 function AppRoutes() {
@@ -90,6 +94,10 @@ function AppRoutes() {
         <Route path="/dashboard"element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>}/>
         <Route path="/employee/dashboard" element={<EmployeeDashboard />} />
         <Route path="/employee/profile" element={<MyProfile />} />
+        <Route path="/employee/employees" element={<ProtectedRoute allowedRoles={["Employee"]}><EmployeeDirectory /></ProtectedRoute>} />
+        <Route path="/employee/change-password" element={<ProtectedRoute allowedRoles={["Employee"]}><ChangePassword /></ProtectedRoute>} />
+        <Route path="/employee/leaves" element={<ProtectedRoute allowedRoles={["Employee"]}><MyLeaves /></ProtectedRoute>} />
+        <Route path="/leaves" element={<ProtectedRoute allowedRoles={["Admin", "HR"]}><LeaveManagement /></ProtectedRoute>} />
         <Route
               path="/attendance"
               element={

@@ -49,7 +49,7 @@ function formatDuration(minutes) {
   return `${String(hours).padStart(2, "0")}:${String(remainingMinutes).padStart(2, "0")}`;
 }
 
-function AttendanceCalendar({ records, holidays = [], employeeName, readOnly = true }) {
+function AttendanceCalendar({ records, holidays = [], leaves = [], employeeName, readOnly = true }) {
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -88,12 +88,19 @@ function AttendanceCalendar({ records, holidays = [], employeeName, readOnly = t
 
   const selectedRecord = recordsByDate.get(selectedDate);
   const selectedHoliday = holidaysByDate.get(selectedDate);
+  const selectedLeave = leaves.find((leave) =>
+    leave.status === "Approved" &&
+    selectedDate >= leave.startDate?.split("T")[0] &&
+    selectedDate <= leave.endDate?.split("T")[0]
+  );
   const selectedDay = new Date(`${selectedDate}T00:00:00`);
   const selectedIsWeekend = selectedDay.getDay() === 0 || selectedDay.getDay() === 6;
   const detailRecord = selectedHoliday
     ? { status: "Holiday", remarks: selectedHoliday.name }
     : selectedIsWeekend
     ? { status: "Off Day" }
+    : selectedLeave
+    ? { status: "Leave", remarks: selectedLeave.leaveType }
     : selectedRecord;
   const presentDays = monthRecords.filter((record) => record.status === "Present").length;
   const exceptionDays = monthRecords.filter(
@@ -146,10 +153,17 @@ function AttendanceCalendar({ records, holidays = [], employeeName, readOnly = t
               const record = recordsByDate.get(dateKey);
               const isWeekend = day.getDay() === 0 || day.getDay() === 6;
               const holiday = holidaysByDate.get(dateKey);
+              const approvedLeave = leaves.find((leave) =>
+                leave.status === "Approved" &&
+                dateKey >= leave.startDate?.split("T")[0] &&
+                dateKey <= leave.endDate?.split("T")[0]
+              );
               const displayStatus = holiday
                 ? "Holiday"
                 : isWeekend
                 ? "Off Day"
+                : approvedLeave
+                ? "Leave"
                 : record?.status;
               const config = statusConfig[displayStatus];
               const isCurrentMonth = day.getMonth() === visibleMonth.getMonth();

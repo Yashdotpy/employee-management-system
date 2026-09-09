@@ -305,6 +305,7 @@ public class AttendanceRepository : IAttendanceRepository
             ShiftEndTime = shift.Value.End,
             IsOffDay = IsWeekend(DateTime.Today),
             IsHoliday = IsHoliday(connection, DateTime.Today),
+            IsOnLeave = IsApprovedLeave(connection, employeeId, DateTime.Today),
             Attendance = GetAttendanceForDate(connection, employeeId, DateTime.Today)
         };
     }
@@ -314,10 +315,12 @@ public class AttendanceRepository : IAttendanceRepository
         using SqlConnection connection = new SqlConnection(_connectionString);
         connection.Open();
 
-        if (IsWeekend(DateTime.Today) || IsHoliday(connection, DateTime.Today))
+        if (IsWeekend(DateTime.Today) ||
+            IsHoliday(connection, DateTime.Today) ||
+            IsApprovedLeave(connection, employeeId, DateTime.Today))
         {
             throw new InvalidOperationException(
-                "Sign-in is not available on an off day or holiday.");
+                "Sign-in is not available on an off day, holiday, or approved leave.");
         }
 
         var shift = GetEmployeeShift(connection, employeeId)
@@ -361,6 +364,7 @@ public class AttendanceRepository : IAttendanceRepository
             ShiftEndTime = shift.End,
             IsOffDay = false,
             IsHoliday = false,
+            IsOnLeave = false,
             Attendance = GetAttendanceForDate(connection, employeeId, DateTime.Today)
         };
     }
@@ -409,6 +413,7 @@ public class AttendanceRepository : IAttendanceRepository
             ShiftEndTime = shift.End,
             IsOffDay = IsWeekend(DateTime.Today),
             IsHoliday = IsHoliday(connection, DateTime.Today),
+            IsOnLeave = IsApprovedLeave(connection, employeeId, DateTime.Today),
             Attendance = GetAttendanceForDate(connection, employeeId, DateTime.Today)
         };
     }
@@ -441,6 +446,18 @@ public class AttendanceRepository : IAttendanceRepository
               AND a.Status = 'Absent'
               AND a.Remarks = 'Automatically marked absent because no sign-in was recorded.';
 
+            UPDATE a
+            SET
+                a.Status = 'Leave',
+                a.Remarks = CONCAT('Approved ', l.LeaveType)
+            FROM Attendance a
+            INNER JOIN LeaveRequests l
+                ON l.EmployeeId = a.EmployeeId
+                AND a.AttendanceDate BETWEEN l.StartDate AND l.EndDate
+                AND l.Status = 'Approved'
+            WHERE a.Status = 'Absent'
+              AND a.Remarks = 'Automatically marked absent because no sign-in was recorded.';
+
             WITH DateRange AS
             (
                 SELECT CAST(MIN(DateOfJoining) AS date) AS AttendanceDate
@@ -458,12 +475,24 @@ public class AttendanceRepository : IAttendanceRepository
             SELECT
                 e.EmployeeId,
                 d.AttendanceDate,
-                'Absent',
-                'Automatically marked absent because no sign-in was recorded.'
+                CASE WHEN approvedLeave.LeaveId IS NULL THEN 'Absent' ELSE 'Leave' END,
+                CASE
+                    WHEN approvedLeave.LeaveId IS NULL
+                        THEN 'Automatically marked absent because no sign-in was recorded.'
+                    ELSE CONCAT('Approved ', approvedLeave.LeaveType)
+                END
             FROM DateRange d
             INNER JOIN Employees e
                 ON e.Role = 'Employee'
                 AND CAST(e.DateOfJoining AS date) <= d.AttendanceDate
+            OUTER APPLY
+            (
+                SELECT TOP 1 l.LeaveId, l.LeaveType
+                FROM LeaveRequests l
+                WHERE l.EmployeeId = e.EmployeeId
+                  AND l.Status = 'Approved'
+                  AND d.AttendanceDate BETWEEN l.StartDate AND l.EndDate
+            ) approvedLeave
             WHERE e.Role = 'Employee'
               AND d.AttendanceDate IS NOT NULL
               AND (DATEDIFF(day, '19000101', d.AttendanceDate) % 7) NOT IN (5, 6)
@@ -509,6 +538,21 @@ public class AttendanceRepository : IAttendanceRepository
         using var command = new SqlCommand(
             "SELECT COUNT(*) FROM Holidays WHERE HolidayDate = @HolidayDate", connection);
         command.Parameters.AddWithValue("@HolidayDate", date.Date);
+        return Convert.ToInt32(command.ExecuteScalar()) > 0;
+    }
+
+    private static bool IsApprovedLeave(
+        SqlConnection connection,
+        int employeeId,
+        DateTime date)
+    {
+        using var command = new SqlCommand(@"
+            SELECT COUNT(*) FROM LeaveRequests
+            WHERE EmployeeId = @EmployeeId
+              AND Status = 'Approved'
+              AND @AttendanceDate BETWEEN StartDate AND EndDate", connection);
+        command.Parameters.AddWithValue("@EmployeeId", employeeId);
+        command.Parameters.AddWithValue("@AttendanceDate", date.Date);
         return Convert.ToInt32(command.ExecuteScalar()) > 0;
     }
 
